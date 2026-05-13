@@ -3,6 +3,52 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 const API_BASE = (window.API_BASE || '').replace(/\/$/, '');
 
+// True when the page is served from a host that can't run the Node backend (e.g. GitHub Pages).
+const IS_REMOTE_STATIC_HOST = !['localhost', '127.0.0.1', ''].includes(location.hostname) && !API_BASE;
+
+// Fetch JSON with content-type validation, a hard timeout, and human-friendly errors.
+// Throws Error with .userMessage suitable for direct display. Logs request + response details.
+async function fetchJSON(url, options = {}, { timeoutMs = 30000 } = {}) {
+  console.debug('[audit] →', options.method || 'GET', url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') {
+      const msg = `Request timed out after ${timeoutMs / 1000}s. The backend may be sleeping or unreachable.`;
+      console.error('[audit] timeout', url);
+      const err = new Error(msg); err.userMessage = msg; throw err;
+    }
+    const msg = `Could not reach backend at ${url}. Check your network connection and that the backend URL in config.js is correct.`;
+    console.error('[audit] network error', e);
+    const err = new Error(msg); err.userMessage = msg; throw err;
+  }
+  clearTimeout(timer);
+
+  const contentType = res.headers.get('content-type') || '';
+  console.debug('[audit] ←', res.status, contentType, url);
+
+  if (!contentType.includes('application/json')) {
+    const bodyPreview = (await res.text()).slice(0, 200);
+    const looksLikeHTML = bodyPreview.trimStart().startsWith('<');
+    const msg = looksLikeHTML
+      ? `Backend returned an HTML page instead of JSON (HTTP ${res.status}). This usually means the API endpoint does not exist at this URL — set window.API_BASE in js/config.js to your deployed backend.`
+      : `Backend returned non-JSON response (HTTP ${res.status}, content-type "${contentType}").`;
+    console.error('[audit] non-JSON response body preview:', bodyPreview);
+    const err = new Error(msg); err.userMessage = msg; throw err;
+  }
+
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data.error || `Request failed with HTTP ${res.status}`;
+    const err = new Error(msg); err.userMessage = msg; throw err;
+  }
+  return data;
+}
+
 let currentAuditId = null;
 
 // View management
@@ -37,19 +83,19 @@ $('#auditForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   btn.querySelector('.btn-text').textContent = 'Starting...';
 
+  if (IS_REMOTE_STATIC_HOST) {
+    showError(`No backend is configured. This page is hosted on ${location.hostname}, which can only serve static files. Deploy the Node server (see server.js) and set window.API_BASE in js/config.js to its URL.`);
+    btn.disabled = false;
+    btn.querySelector('.btn-text').textContent = 'Run Audit';
+    return;
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/api/audit`, {
+    const { id } = await fetchJSON(`${API_BASE}/api/audit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, competitors })
     });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to start audit');
-    }
-
-    const { id } = await res.json();
     currentAuditId = id;
 
     // Show progress view
@@ -63,7 +109,7 @@ $('#auditForm').addEventListener('submit', async (e) => {
     listenToProgress(id);
 
   } catch (err) {
-    showError(err.message);
+    showError(err.userMessage || err.message);
   } finally {
     btn.disabled = false;
     btn.querySelector('.btn-text').textContent = 'Run Audit';
@@ -103,17 +149,14 @@ function listenToProgress(auditId) {
   };
 
   source.onerror = () => {
+    console.warn('[audit] SSE stream errored, falling back to /report poll');
     source.close();
-    // Try to fetch the result directly
     setTimeout(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/audit/${auditId}/report`);
-        if (res.ok) {
-          const result = await res.json();
-          showReport(result);
-        }
-      } catch {
-        // Already showing progress, will resolve
+        const result = await fetchJSON(`${API_BASE}/api/audit/${auditId}/report`);
+        showReport(result);
+      } catch (err) {
+        showError(err.userMessage || 'Lost connection to backend during audit.');
       }
     }, 2000);
   };
