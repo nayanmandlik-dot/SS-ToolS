@@ -1,6 +1,8 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
+const API_BASE = (window.API_BASE || '').replace(/\/$/, '');
+
 let currentAuditId = null;
 
 // View management
@@ -36,7 +38,7 @@ $('#auditForm').addEventListener('submit', async (e) => {
   btn.querySelector('.btn-text').textContent = 'Starting...';
 
   try {
-    const res = await fetch('/api/audit', {
+    const res = await fetch(`${API_BASE}/api/audit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, competitors })
@@ -69,7 +71,7 @@ $('#auditForm').addEventListener('submit', async (e) => {
 });
 
 function listenToProgress(auditId) {
-  const source = new EventSource(`/api/audit/${auditId}/progress`);
+  const source = new EventSource(`${API_BASE}/api/audit/${auditId}/progress`);
 
   source.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -105,7 +107,7 @@ function listenToProgress(auditId) {
     // Try to fetch the result directly
     setTimeout(async () => {
       try {
-        const res = await fetch(`/api/audit/${auditId}/report`);
+        const res = await fetch(`${API_BASE}/api/audit/${auditId}/report`);
         if (res.ok) {
           const result = await res.json();
           showReport(result);
@@ -359,7 +361,7 @@ $('#exportPdf').addEventListener('click', () => {
   const originalText = btn.innerHTML;
   btn.textContent = 'Generating PDF...';
   const a = document.createElement('a');
-  a.href = `/api/audit/${currentAuditId}/export/pdf`;
+  a.href = `${API_BASE}/api/audit/${currentAuditId}/export/pdf`;
   a.download = `audit-report-${Date.now()}.pdf`;
   document.body.appendChild(a);
   a.click();
@@ -370,7 +372,7 @@ $('#exportPdf').addEventListener('click', () => {
 $('#exportHtml').addEventListener('click', () => {
   if (!currentAuditId) return;
   const a = document.createElement('a');
-  a.href = `/api/audit/${currentAuditId}/export/html`;
+  a.href = `${API_BASE}/api/audit/${currentAuditId}/export/html`;
   a.download = `audit-report-${Date.now()}.html`;
   document.body.appendChild(a);
   a.click();
@@ -383,7 +385,7 @@ $('#exportScreenshot').addEventListener('click', () => {
   btn.disabled = true;
   btn.textContent = 'Capturing...';
   const a = document.createElement('a');
-  a.href = `/api/audit/${currentAuditId}/export/screenshot`;
+  a.href = `${API_BASE}/api/audit/${currentAuditId}/export/screenshot`;
   a.download = `audit-report-${Date.now()}.jpg`;
   document.body.appendChild(a);
   a.click();
