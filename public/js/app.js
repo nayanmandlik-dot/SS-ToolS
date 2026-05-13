@@ -3,12 +3,14 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 const API_BASE = (window.API_BASE || '').replace(/\/$/, '');
 
-// True when the page is served from a host that can't run the Node backend (e.g. GitHub Pages).
-const IS_REMOTE_STATIC_HOST = !['localhost', '127.0.0.1', ''].includes(location.hostname) && !API_BASE;
+// True only when the page is on GitHub Pages AND no backend URL is configured — that combination
+// genuinely cannot serve audits. Render-hosted and localhost runs serve /api/* on the same origin,
+// so empty API_BASE is correct there and we must NOT block.
+const IS_REMOTE_STATIC_HOST = location.hostname.endsWith('.github.io') && !API_BASE;
 
 // Fetch JSON with content-type validation, a hard timeout, and human-friendly errors.
 // Throws Error with .userMessage suitable for direct display. Logs request + response details.
-async function fetchJSON(url, options = {}, { timeoutMs = 30000 } = {}) {
+async function fetchJSON(url, options = {}, { timeoutMs = 90000 } = {}) {
   console.debug('[audit] →', options.method || 'GET', url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
