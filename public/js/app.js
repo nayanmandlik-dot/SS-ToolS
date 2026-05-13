@@ -51,6 +51,19 @@ async function fetchJSON(url, options = {}, { timeoutMs = 30000 } = {}) {
 
 let currentAuditId = null;
 
+// When deployed as a static frontend demo (e.g. GitHub Pages) with no backend, show a banner.
+if (IS_REMOTE_STATIC_HOST) {
+  const banner = document.createElement('div');
+  banner.className = 'demo-banner';
+  banner.innerHTML = `
+    <strong>Live preview &mdash; frontend only.</strong>
+    Audits require the Node backend (Express + Puppeteer + Anthropic SDK), which cannot run on GitHub Pages.
+    To run real audits, clone the repo and run <code>npm start</code> locally.
+    <a href="https://github.com/nayanmandlik-dot/SS-ToolS" target="_blank" rel="noopener">View source &rarr;</a>
+  `;
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+
 // View management
 function showView(viewId) {
   $$('.view').forEach(v => v.classList.remove('active'));
@@ -84,7 +97,7 @@ $('#auditForm').addEventListener('submit', async (e) => {
   btn.querySelector('.btn-text').textContent = 'Starting...';
 
   if (IS_REMOTE_STATIC_HOST) {
-    showError(`No backend is configured. This page is hosted on ${location.hostname}, which can only serve static files. Deploy the Node server (see server.js) and set window.API_BASE in js/config.js to its URL.`);
+    showError(`This is a frontend-only demo. Real audits require the Node backend running locally — clone the repo and run "npm start", then open http://localhost:3000.`);
     btn.disabled = false;
     btn.querySelector('.btn-text').textContent = 'Run Audit';
     return;

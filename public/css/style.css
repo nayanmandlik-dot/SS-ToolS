@@ -768,3 +768,32 @@ body {
   .hdr-score-ring { width: 64px; height: 64px; }
   .hdr-score-ring .sv { font-size: 22px; }
 }
+
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #fff7ed;
+  color: #7c2d12;
+  border-bottom: 1px solid #fdba74;
+  padding: 12px 20px;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.5;
+}
+.demo-banner strong { color: #9a3412; margin-right: 6px; }
+.demo-banner code {
+  background: rgba(154, 52, 18, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+}
+.demo-banner a {
+  color: #9a3412;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.demo-banner a:hover { text-decoration: underline; }
